@@ -2,3 +2,4 @@
 *.java
 *.java~
 *.html
+!lab2/htmlscanner/test.html
