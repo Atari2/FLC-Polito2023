@@ -3,3 +3,4 @@
 *.java~
 *.html
 !lab2/htmlscanner/test.html
+!lab3/cparser/Main.java
