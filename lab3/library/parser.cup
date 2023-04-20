@@ -1,0 +1,70 @@
+import java_cup.runtime.*;
+
+parser code {:
+    public void verify_date(Object info) {
+        String s = (String) info;
+        String[] parts = s.split("/");
+        if (Integer.parseInt(parts[0]) > 31 || Integer.parseInt(parts[0]) < 1) {
+            report_error("Giorno non valido", info);
+        }
+        if (Integer.parseInt(parts[1]) > 12 || Integer.parseInt(parts[1]) < 1) {
+            report_error("Mese non valido", info);
+        }
+    }
+    public void verify_collocation(Object info) {
+        String s = (String) info;
+        String[] parts = s.split(" ");
+        String literature = parts[0];
+        String genre = parts[1];
+        if (literature == "LI" && genre == "BO") {
+            report_error("Collocazione non valida", info);
+        }
+    }
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error ");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.println(message + " (EOF)");
+        else if (info instanceof String) {
+            System.err.println(message + " (" + info + ")");
+        } else {
+            System.err.println(message);
+        }
+    }
+:}
+
+// Terminal tokens
+terminal STRING;
+terminal ARROW;
+terminal ISBN;
+terminal COLLOCATION;
+terminal NUMBER;
+terminal DIVIDER;
+terminal S;
+terminal CL;
+terminal CM;
+terminal DATE;
+// Non terminal tokens
+non terminal file;
+non terminal book;
+non terminal booklist;
+non terminal loan;
+non terminal loanlist;
+non terminal userlist;
+non terminal author;
+non terminal authorlist;
+non terminal user;
+// Production rules
+start with file;
+author ::= STRING ARROW booklist;
+user ::= STRING CL loanlist;
+book ::= ISBN CL STRING CL NUMBER | ISBN CL STRING CL NUMBER CL COLLOCATION;
+booklist ::= book CM booklist | book;
+authorlist ::= author S authorlist | author S;
+userlist ::= user S userlist | user S;
+loan ::= DATE:d ISBN {: verify_date(d); :};
+loanlist ::= loan CM loanlist | loan;
+file ::= authorlist DIVIDER userlist;

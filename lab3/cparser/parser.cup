@@ -12,6 +12,19 @@ parser code {:
             } else System.err.print(": ");
         else System.err.print(": ");
     }
+    public void print_name(Object info) {
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.out.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.out.print(": ");
+        } else if (info != null) {
+            System.out.println("Received: " + info.getClass().getName());
+        } else {
+            System.out.println("Received: null");
+        }
+    }
 :};
 
 
@@ -29,23 +42,26 @@ terminal INT_TYPE, DOUBLE_TYPE;
 // Non terminal tokens
 non terminal prog;
 non terminal expr;
-non terminal type;
-non terminal vardecl;
+non terminal String type;
+non terminal String vardecl;
 non terminal mathsym;
-non terminal varaccess;
+non terminal String varaccess;
 non terminal constaccess;
 non terminal mathexpr;
 non terminal logicalsym;
 non terminal logicalcommand;
 non terminal assignment;
+non terminal printstmt;
 
+precedence left MINUS;
+precedence left NOT;
 
 //////////////////////////////////////
 // Grammar start
 //////////////////////////////////////
 
 start with prog;
-type ::= INT_TYPE | DOUBLE_TYPE;
+type ::= INT_TYPE:i {: RESULT="int"; :} | DOUBLE_TYPE {: RESULT="double"; :};
 mathsym ::= PLUS | MINUS | STAR | DIV | OR | AND;
 logicalsym ::= MIN | MAJ | MIN_EQ | EQ_MIN | MAJ_EQ | EQ_MAJ;
 constaccess ::= INT | DOUBLE;
@@ -53,7 +69,11 @@ varaccess ::= ID | ID SO INT SC | ID SO ID SC;
 logicalcommand ::= IF | WHILE | THEN | ELSE;
 assignment ::= varaccess EQ mathexpr;
 
-mathexpr ::= constaccess mathsym mathexpr | varaccess mathsym mathexpr | varaccess | constaccess | NOT mathexpr | MINUS mathexpr;
-vardecl ::= type ID | type ID SO INT SC | vardecl CM ID | vardecl CM ID SO INT SC;
-expr ::= vardecl | assignment | mathexpr | mathexpr logicalsym expr | RO expr RC | logicalcommand RO expr RC prog;
-prog ::= prog expr:e S | expr:e S | BO prog BC | BO BC | S;
+printstmt ::= PRINT varaccess | PRINT constaccess;
+mathexpr ::= constaccess mathsym mathexpr | varaccess mathsym mathexpr | varaccess | constaccess | MINUS mathexpr %prec MINUS | NOT mathexpr %prec NOT;
+vardecl ::= type:t ID:e {: RESULT=new String("DECL: " + e + " of type " + t); :} | 
+            type:t ID:e SO INT:n SC {: RESULT=new String("ARRAYDECL: " + e + " of type" + t + " and of size " + n); :} | 
+            vardecl:v CM ID:e {: RESULT=new String(v + ", DECL: " + e); :} | 
+            vardecl:v CM ID:e SO INT:n SC{: RESULT=new String(v + "ARRAYDECL: " + e + " and of size " + n); :};
+expr ::= printstmt S | vardecl:e S {: System.out.println(e); :} | assignment S | mathexpr | mathexpr logicalsym expr | RO expr RC | BO prog BC | logicalcommand RO expr RC expr;
+prog ::= prog expr:e | expr:e | S;
