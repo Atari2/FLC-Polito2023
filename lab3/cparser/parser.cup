@@ -1,0 +1,59 @@
+import java_cup.runtime.*;
+
+
+parser code {:
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+:};
+
+
+
+// Terminal tokens
+terminal INT, DOUBLE, ID;
+terminal PRINT, IF, WHILE,  THEN, ELSE;
+terminal RO, RC, BO, BC, SC, CM, SO, S;
+terminal PLUS, MINUS, STAR, DIV;
+terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal AND, OR, NOT;
+terminal INT_TYPE, DOUBLE_TYPE;
+
+
+// Non terminal tokens
+non terminal prog;
+non terminal expr;
+non terminal type;
+non terminal vardecl;
+non terminal mathsym;
+non terminal varaccess;
+non terminal constaccess;
+non terminal mathexpr;
+non terminal logicalsym;
+non terminal logicalcommand;
+non terminal assignment;
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+type ::= INT_TYPE | DOUBLE_TYPE;
+mathsym ::= PLUS | MINUS | STAR | DIV | OR | AND;
+logicalsym ::= MIN | MAJ | MIN_EQ | EQ_MIN | MAJ_EQ | EQ_MAJ;
+constaccess ::= INT | DOUBLE;
+varaccess ::= ID | ID SO INT SC | ID SO ID SC;
+logicalcommand ::= IF | WHILE | THEN | ELSE;
+assignment ::= varaccess EQ mathexpr;
+
+mathexpr ::= constaccess mathsym mathexpr | varaccess mathsym mathexpr | varaccess | constaccess | NOT mathexpr | MINUS mathexpr;
+vardecl ::= type ID | type ID SO INT SC | vardecl CM ID | vardecl CM ID SO INT SC;
+expr ::= vardecl | assignment | mathexpr | mathexpr logicalsym expr | RO expr RC | logicalcommand RO expr RC prog;
+prog ::= prog expr:e S | expr:e S | BO prog BC | BO BC | S;
