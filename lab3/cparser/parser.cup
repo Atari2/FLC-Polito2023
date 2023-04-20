@@ -1,4 +1,5 @@
 import java_cup.runtime.*;
+import csymbol.*;
 
 
 parser code {:
@@ -12,25 +13,26 @@ parser code {:
             } else System.err.print(": ");
         else System.err.print(": ");
     }
-    public void print_name(Object info) {
-        if (info instanceof Symbol) {
-            if (((Symbol)info).left != -1){
-                int line = (((Symbol)info).left)+1;
-                int column = (((Symbol)info).right)+1;
-                System.out.print(" (linea "+line+", colonna "+column+"): ");
-            } else System.out.print(": ");
-        } else if (info != null) {
-            System.out.println("Received: " + info.getClass().getName());
-        } else {
-            System.out.println("Received: null");
-        }
+    public CDeclList create_cdecl(CType t, String ident) {
+        return new CDeclList(new CDecl(t, ident));
+    }
+    public CDeclList add_cdecl(CDeclList origin, String ident) {
+        return origin.add(new CDecl(origin.first().getType(), ident));
+    }
+    public CDeclList create_cdecl(CType t, String ident, Integer size) {
+        return new CDeclList(new CDecl(t, ident, size));
+    }
+    public CDeclList add_cdecl(CDeclList origin, String ident, Integer size) {
+        return origin.add(new CDecl(origin.first().getType(), ident, size));
     }
 :};
 
 
 
 // Terminal tokens
-terminal INT, DOUBLE, ID;
+terminal Integer INT;
+terminal Double DOUBLE;
+terminal String ID;
 terminal PRINT, IF, WHILE,  THEN, ELSE;
 terminal RO, RC, BO, BC, SC, CM, SO, S;
 terminal PLUS, MINUS, STAR, DIV;
@@ -42,10 +44,10 @@ terminal INT_TYPE, DOUBLE_TYPE;
 // Non terminal tokens
 non terminal prog;
 non terminal expr;
-non terminal String type;
-non terminal String vardecl;
+non terminal CType type;
+non terminal CDeclList vardecl;
 non terminal mathsym;
-non terminal String varaccess;
+non terminal varaccess;
 non terminal constaccess;
 non terminal mathexpr;
 non terminal logicalsym;
@@ -61,7 +63,7 @@ precedence left NOT;
 //////////////////////////////////////
 
 start with prog;
-type ::= INT_TYPE:i {: RESULT="int"; :} | DOUBLE_TYPE {: RESULT="double"; :};
+type ::= INT_TYPE:i {: RESULT=CType.INT; :} | DOUBLE_TYPE {: RESULT=CType.DOUBLE; :};
 mathsym ::= PLUS | MINUS | STAR | DIV | OR | AND;
 logicalsym ::= MIN | MAJ | MIN_EQ | EQ_MIN | MAJ_EQ | EQ_MAJ;
 constaccess ::= INT | DOUBLE;
@@ -71,9 +73,9 @@ assignment ::= varaccess EQ mathexpr;
 
 printstmt ::= PRINT varaccess | PRINT constaccess;
 mathexpr ::= constaccess mathsym mathexpr | varaccess mathsym mathexpr | varaccess | constaccess | MINUS mathexpr %prec MINUS | NOT mathexpr %prec NOT;
-vardecl ::= type:t ID:e {: RESULT=new String("DECL: " + e + " of type " + t); :} | 
-            type:t ID:e SO INT:n SC {: RESULT=new String("ARRAYDECL: " + e + " of type" + t + " and of size " + n); :} | 
-            vardecl:v CM ID:e {: RESULT=new String(v + ", DECL: " + e); :} | 
-            vardecl:v CM ID:e SO INT:n SC{: RESULT=new String(v + "ARRAYDECL: " + e + " and of size " + n); :};
-expr ::= printstmt S | vardecl:e S {: System.out.println(e); :} | assignment S | mathexpr | mathexpr logicalsym expr | RO expr RC | BO prog BC | logicalcommand RO expr RC expr;
+vardecl ::= type:t ID:e {: RESULT=create_cdecl(t, e); :} | 
+            type:t ID:e SO INT:n SC {: RESULT=create_cdecl(t, e, n); :} | 
+            vardecl:v CM ID:e {: RESULT=add_cdecl(v, e); :} | 
+            vardecl:v CM ID:e SO INT:n SC{: RESULT=add_cdecl(v, e, n); :};
+expr ::= printstmt S | vardecl:e S {: System.out.println(e.toString()); :} | assignment S | mathexpr | mathexpr logicalsym expr | RO expr RC | BO prog BC | logicalcommand RO expr RC expr;
 prog ::= prog expr:e | expr:e | S;
