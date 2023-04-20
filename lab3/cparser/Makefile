@@ -17,3 +17,6 @@ clean:
 	rm -fr parser.java scanner.java sym.java
 	rm -vfr *.class
 	rm -vfr *.*~
+
+run:
+	java Main bubble.c
