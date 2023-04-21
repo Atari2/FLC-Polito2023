@@ -2,6 +2,7 @@
 *.java
 *.java~
 *.html
+**/output.json
 !lab2/htmlscanner/test.html
 !lab3/cparser/Main.java
 !lab3/cparser/csymbol/*.java

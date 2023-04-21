@@ -35,25 +35,25 @@ terminal Double DOUBLE;
 terminal String ID;
 terminal PRINT, IF, WHILE,  THEN, ELSE;
 terminal RO, RC, BO, BC, SC, CM, SO, S;
-terminal PLUS, MINUS, STAR, DIV;
-terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
-terminal AND, OR, NOT;
-terminal INT_TYPE, DOUBLE_TYPE;
+terminal String PLUS, MINUS, STAR, DIV;
+terminal String MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal String AND, OR, NOT;
+terminal CType INT_TYPE, DOUBLE_TYPE;
 
 
 // Non terminal tokens
-non terminal prog;
-non terminal expr;
+non terminal String prog;
+non terminal String expr;
 non terminal CType type;
 non terminal CDeclList vardecl;
-non terminal mathsym;
-non terminal varaccess;
-non terminal constaccess;
-non terminal mathexpr;
-non terminal logicalsym;
-non terminal logicalcommand;
-non terminal assignment;
-non terminal printstmt;
+non terminal String mathsym;
+non terminal String varaccess;
+non terminal String constaccess;
+non terminal String mathexpr;
+non terminal String logicalsym;
+non terminal String logicalcommand;
+non terminal String assignment;
+non terminal String printstmt;
 
 precedence left MINUS;
 precedence left NOT;
@@ -64,18 +64,44 @@ precedence left NOT;
 
 start with prog;
 type ::= INT_TYPE:i {: RESULT=CType.INT; :} | DOUBLE_TYPE {: RESULT=CType.DOUBLE; :};
-mathsym ::= PLUS | MINUS | STAR | DIV | OR | AND;
-logicalsym ::= MIN | MAJ | MIN_EQ | EQ_MIN | MAJ_EQ | EQ_MAJ;
-constaccess ::= INT | DOUBLE;
-varaccess ::= ID | ID SO INT SC | ID SO ID SC;
-logicalcommand ::= IF | WHILE | THEN | ELSE;
-assignment ::= varaccess EQ mathexpr;
+mathsym ::= PLUS {: RESULT="+"; :} | 
+            MINUS {: RESULT="-"; :} | 
+            STAR {: RESULT="*"; :} | 
+            DIV {: RESULT="/"; :} | 
+            OR {: RESULT="|"; :} | 
+            AND {: RESULT="&"; :} | 
+            NOT {: RESULT="!"; :};
+logicalsym ::= MIN {: RESULT="<"; :} |
+               MAJ {: RESULT=">"; :} | 
+               MIN_EQ {: RESULT="<="; :} | 
+               EQ_MIN {: RESULT="=<"; :} | 
+               MAJ_EQ {: RESULT=">="; :} | 
+               EQ_MAJ {: RESULT="=>"; :};
+constaccess ::= INT:v {: RESULT=v.toString(); :} | DOUBLE:v {: RESULT=v.toString(); :};
+varaccess ::= ID:i {: RESULT=i; :} | ID:i SO INT:n SC {: RESULT=i+"["+n+"]"; :} | ID:i SO ID:idx SC {: RESULT=i+"["+idx+"]"; :};
+logicalcommand ::= IF {: RESULT="if"; :} | WHILE {: RESULT="while"; :} | THEN {: RESULT="then"; :} | ELSE {: RESULT="else"; :};
+assignment ::= varaccess:v EQ mathexpr:e {: RESULT=v+" = "+e; :};
 
-printstmt ::= PRINT varaccess | PRINT constaccess;
-mathexpr ::= constaccess mathsym mathexpr | varaccess mathsym mathexpr | varaccess | constaccess | MINUS mathexpr %prec MINUS | NOT mathexpr %prec NOT;
+printstmt ::= PRINT varaccess:v {: RESULT="print(" + v + ")"; :} | 
+              PRINT constaccess:c {: RESULT="print(" + c + ")"; :};
+mathexpr ::= constaccess:c mathsym:m mathexpr:e {: RESULT=c+m+e; :} | 
+             varaccess:v mathsym:m mathexpr:e {: RESULT=v+m+e; :} | 
+             varaccess:v {: RESULT=v; :} | 
+             constaccess:c {: RESULT=c; :} | 
+             MINUS mathexpr:e {: RESULT="-"+e; :} %prec MINUS | 
+             NOT mathexpr:e {: RESULT="!"+e; :} %prec NOT ;
 vardecl ::= type:t ID:e {: RESULT=create_cdecl(t, e); :} | 
             type:t ID:e SO INT:n SC {: RESULT=create_cdecl(t, e, n); :} | 
             vardecl:v CM ID:e {: RESULT=add_cdecl(v, e); :} | 
-            vardecl:v CM ID:e SO INT:n SC{: RESULT=add_cdecl(v, e, n); :};
-expr ::= printstmt S | vardecl:e S {: System.out.println(e.toString()); :} | assignment S | mathexpr | mathexpr logicalsym expr | RO expr RC | BO prog BC | logicalcommand RO expr RC expr;
-prog ::= prog expr:e | expr:e | S;
+            vardecl:v CM ID:e SO INT:n SC {: RESULT=add_cdecl(v, e, n); :};
+expr ::= printstmt:p S {: RESULT=p+";"; :} | 
+         vardecl:e S {: RESULT=e.toString()+";"; :} | 
+         assignment:a S {: RESULT=a+";"; :} | 
+         mathexpr:e {: RESULT=e; :} | 
+         mathexpr:m logicalsym:l expr:e {: RESULT=m + l + e; :} | 
+         RO expr:e RC {: RESULT="(" + e + ")"; :}| 
+         BO prog:p BC {: RESULT="(" + p + ")"; :} |  
+         logicalcommand:l RO expr:e1 RC expr:e2 {: RESULT=l + "(" + e1 + ")" + e2; :};
+prog ::= prog:p expr:e {: System.out.println(e); RESULT=p+e; :} | 
+         expr:e {: System.out.println(e); RESULT=e; :} | 
+         S;
