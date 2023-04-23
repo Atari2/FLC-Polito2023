@@ -1,3 +1,9 @@
+ifeq ($(OS),Windows_NT)
+	GraphCommand = CUPGraphLayout output.json
+else
+	GraphCommand = CUPGraphLayout -Kdot -Tsvg -o output.svg output.json
+endif
+
 default: scanner parser
 	javac *.java
 
@@ -28,4 +34,4 @@ run:
 	java Main bubble.c
 
 run_json: run
-	CUPGraphLayout output.json
+	$(GraphCommand)
