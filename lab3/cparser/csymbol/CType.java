@@ -5,10 +5,10 @@ public enum CType {
     DOUBLE;
 
     public String toString() {
-        return switch (this) {
-            case INT -> "int";
-            case DOUBLE -> "double";
-            default -> "unknown";
-        };
+        switch (this) {
+            case INT: return "int";
+            case DOUBLE: return "double";
+            default: return "unknown";
+        }
     }
 }
