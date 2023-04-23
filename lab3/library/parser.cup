@@ -1,9 +1,8 @@
 import java_cup.runtime.*;
 
 parser code {:
-    public void verify_date(Object info) {
-        String s = (String) info;
-        String[] parts = s.split("/");
+    public void verify_date(String info) {
+        String[] parts = info.split("/");
         if (Integer.parseInt(parts[0]) > 31 || Integer.parseInt(parts[0]) < 1) {
             report_error("Giorno non valido", info);
         }
@@ -11,12 +10,11 @@ parser code {:
             report_error("Mese non valido", info);
         }
     }
-    public void verify_collocation(Object info) {
-        String s = (String) info;
-        String[] parts = s.split(" ");
+    public void verify_collocation(String info) {
+        String[] parts = info.split(" ");
         String literature = parts[0];
         String genre = parts[1];
-        if (literature == "LI" && genre == "BO") {
+        if (literature.equals("LI") && genre.equals("BO")) {
             report_error("Collocazione non valida", info);
         }
     }
@@ -40,13 +38,13 @@ parser code {:
 terminal STRING;
 terminal ARROW;
 terminal ISBN;
-terminal COLLOCATION;
+terminal String COLLOCATION;
 terminal NUMBER;
 terminal DIVIDER;
 terminal S;
 terminal CL;
 terminal CM;
-terminal DATE;
+terminal String DATE;
 // Non terminal tokens
 non terminal file;
 non terminal book;
@@ -61,7 +59,7 @@ non terminal user;
 start with file;
 author ::= STRING ARROW booklist;
 user ::= STRING CL loanlist;
-book ::= ISBN CL STRING CL NUMBER | ISBN CL STRING CL NUMBER CL COLLOCATION;
+book ::= ISBN CL STRING CL NUMBER | ISBN CL STRING CL NUMBER CL COLLOCATION:c {: verify_collocation(c); :};
 booklist ::= book CM booklist | book;
 authorlist ::= author S authorlist | author S;
 userlist ::= user S userlist | user S;
