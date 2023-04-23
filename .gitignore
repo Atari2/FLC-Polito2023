@@ -7,3 +7,4 @@
 !lab3/cparser/Main.java
 !lab3/cparser/csymbol/*.java
 !lab3/library/Main.java
+lab3/cparser/output.svg
