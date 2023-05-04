@@ -1,0 +1,62 @@
+import java_cup.runtime.*;
+
+parser code {:
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error ");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.println(message + " (EOF)");
+        else if (info instanceof String) {
+            System.err.println(message + " (" + info + ")");
+        } else {
+            System.err.println(message);
+        }
+    }
+:}
+
+// Terminal tokens
+terminal DOT;
+terminal COMMA;
+terminal OWAL;
+terminal QWAL;
+terminal LPAR;
+terminal RPAR;
+terminal String ATOM;
+terminal String VARIABLE;
+// Non terminal tokens
+non terminal String fact;
+non terminal String predicate;
+non terminal String rule;
+non terminal String interrogation;
+non terminal String functor;
+non terminal String argument;
+
+non terminal argumentlist;
+non terminal predicatelist;
+
+non terminal file;
+
+// Production rules
+start with file;
+fact ::= predicate:p DOT {: RESULT = p+"."; :};
+
+argument ::= predicate:p {: RESULT=p; :} | VARIABLE:v {: RESULT=v; :};
+argumentlist ::= argument:a {: RESULT=a; :} | argument:a COMMA argumentlist:al {: RESULT=a+","+al; :};
+
+predicate ::= functor:f argumentlist:l RPAR {: RESULT = f+l+")"; :} | ATOM:a {: RESULT = a; :};
+predicatelist ::= predicate:p {: RESULT=p; :} | predicate:p COMMA predicatelist:l {: RESULT=p+","+l; :};
+
+functor ::= ATOM:a LPAR {: RESULT = a+"("; :};
+
+rule ::= predicate:p OWAL predicatelist:pl DOT {: RESULT = p+" :- "+pl+"."; :};
+interrogation ::= QWAL predicatelist:pl DOT {: RESULT = "?- "+pl+"."; :};
+
+file ::= rule:r {: System.out.println("RULE: " + r); :} | 
+         fact:f {: System.out.println("FACT: " + f); :} | 
+         interrogation:i {: System.out.println("INTERROGATION: " + i); :} | 
+         rule:r file {: System.out.println("RULE: " + r); :} | 
+         fact:f file {: System.out.println("FACT: " + f); :} | 
+         interrogation:i file {: System.out.println("INTERROGATION: " + i); :};
