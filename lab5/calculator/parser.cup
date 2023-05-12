@@ -1,0 +1,117 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.ArrayList;
+
+parser code {:
+    public Calculator calc = new Calculator(this);
+
+    public boolean isCorrect = true;
+
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: " + message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.println(" (EOF)");
+        }
+    }
+
+    public void syntax_error(Symbol cur_token) {}
+
+    public Symbol getCurSymbol() {
+        return (Symbol)stack.elementAt(tos);
+    }
+
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+     private void pSynError(String message){
+         System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+         parser.isCorrect = false;
+         parser.done_parsing();
+     }
+     private void pSynWarning(String message){
+         System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+         parser.isCorrect = false;
+     }
+:}
+
+// Terminal tokens
+terminal PLUS;
+terminal MINUS;
+terminal MULT;
+terminal DIV;
+terminal POW;
+terminal DOT;
+terminal LBRACK;
+terminal RBRACK;
+terminal SEMICOLON;
+terminal QUESTION;
+terminal EQUALS;
+terminal COMMA;
+terminal String VARIABLE;
+terminal String VECTOR_VARIABLE;
+terminal Double NUMBER;
+
+// Non terminal tokens
+non terminal program;
+non terminal assignment;
+non terminal Double scalar_expr;
+non terminal ArrayList<Double> vector_expr;
+non terminal invalid_expr;
+non terminal ArrayList<Double> vector;
+non terminal Double scalar;
+non terminal ArrayList<Double> scalar_expr_list;
+non terminal line;
+non terminal lines;
+// Production rules
+start with program;
+scalar ::= NUMBER:n {: RESULT = n; :} | VARIABLE:v {: RESULT = calc.get_variable(v); if (RESULT == null) pSynError("Scalar variable not found"); :};
+vector ::= LBRACK scalar_expr_list:el RBRACK {: RESULT = el; :} | VECTOR_VARIABLE:v {: RESULT = calc.get_vector(v); if (RESULT == null) pSynError("Vector variable not found"); :};
+
+vector_expr ::= vector:v {: RESULT = v; :} |
+                vector_expr:e PLUS vector:v {: RESULT = calc.handle_op(e, v, Calculator.Op.PLUS); :} |
+                vector_expr:e MINUS vector:v {: RESULT = calc.handle_op(e, v, Calculator.Op.MINUS); :} |
+                vector_expr:e MULT scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.MULT); :} |
+                scalar_expr:s MULT vector:e {: RESULT = calc.handle_op(s, e, Calculator.Op.MULT); :} |
+                vector_expr:e DIV scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.DIV); :};
+
+
+scalar_expr ::= scalar:s {: RESULT = s; :} |
+                scalar_expr:e PLUS scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.PLUS); :} |
+                scalar_expr:e MINUS scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.MINUS); :} |
+                scalar_expr:e MULT scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.MULT); :} |
+                scalar_expr:e DIV scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.DIV); :} |
+                scalar_expr:e POW scalar:s {: RESULT = calc.handle_op(e, s, Calculator.Op.POW); :} |
+                vector_expr:e DOT vector:s {: RESULT = calc.handle_dot(e, s); :};
+
+invalid_expr ::= vector_expr:v PLUS scalar:s error {: pSynWarning("invalid add operation (vector + scalar)"); :} |
+                 scalar_expr:s PLUS vector:v error {: pSynWarning("invalid add operation (scalar + vector)"); :} |
+                 scalar_expr:s MINUS vector:v error {: pSynWarning("invalid minus operation (vector - scalar)"); :} |
+                 vector_expr:v MINUS scalar:s error {: pSynWarning("invalid minus operation (scalar - vector)"); :} |
+                 vector_expr:s DIV vector:v error {: pSynWarning("invalid div operation (vector / vector)"); :} |
+                 vector_expr:s MULT vector:v error {: pSynWarning("invalid mult operation (vector * vector)"); :} |
+                 scalar_expr:s DIV vector:v error {: pSynWarning("invalid div operation (scalar / vector)"); :} |
+                 scalar_expr:s DOT vector:v error {: pSynWarning("invalid dot operation (scalar . vector)"); :} |
+                 vector_expr:v DOT scalar:s error {: pSynWarning("invalid dot operation (vector . scalar)"); :} |
+                 VARIABLE:v EQUALS vector_expr:e {: pSynWarning("invalid vector assignment to a scalar variable"); :} |
+                 VECTOR_VARIABLE:v EQUALS scalar_expr:e {: pSynWarning("invalid scalar assignment to a vector variable"); :};
+
+scalar_expr_list ::= scalar_expr_list:el COMMA scalar_expr:e {: RESULT = Calculator.join_arraylist(el, e); :} | scalar_expr:e {: RESULT = Calculator.make_arraylist(e); :};
+assignment ::= VARIABLE:v EQUALS scalar_expr:e {: calc.add_variable(v, e); :} | VECTOR_VARIABLE:v EQUALS vector_expr:e {: calc.add_vector(v, e); :};
+line ::= assignment | scalar_expr:e {: Calculator.print(e); :} | vector_expr:e {: Calculator.print(e); :} | invalid_expr;
+lines ::= lines line SEMICOLON | line SEMICOLON;
+program ::= lines QUESTION {: if (parser.isCorrect) System.out.println("Program correctly recognized"); :};

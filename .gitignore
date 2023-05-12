@@ -3,9 +3,14 @@
 *.java~
 *.html
 **/output.json
+**/.idea
+*.iml
 !lab2/htmlscanner/test.html
 !lab3/cparser/Main.java
 !lab3/cparser/csymbol/*.java
 !lab3/library/Main.java
+!lab4/es1/Main.java
+!lab5/calculator/Main.java
+!lab5/calculator/Calculator.java
 lab3/cparser/output.svg
 lab3/library/output.svg
