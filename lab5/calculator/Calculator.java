@@ -4,10 +4,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-// TODO:
-// - Respect order of operation
-// - Improve errors by printing the tokens
-
 class InvalidOperation extends Exception {
     public InvalidOperation(String errorMessage) {
         super(errorMessage);
