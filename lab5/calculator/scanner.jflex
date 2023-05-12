@@ -24,7 +24,7 @@ nl = \r|\n|\r\n
 ws = [ \t]
 variable = [a-z]
 vector_variable = [A-Z]
-number = ([-+])?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?
+number = [0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?
 %%
 
 {ws}|{nl}            {;}
