@@ -12,5 +12,10 @@
 !lab4/es1/Main.java
 !lab5/calculator/Main.java
 !lab5/calculator/Calculator.java
+!lab6/minic/*.java
+lab6/minic/bubble.asm
+lab6/minic/parser.java
+lab6/minic/scanner.java
+lab6/minic/sym.java
 lab3/cparser/output.svg
 lab3/library/output.svg
