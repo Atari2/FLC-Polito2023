@@ -1,0 +1,344 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+
+
+parser code {:
+
+    public boolean isCorrect = true;
+    public Integer warningCount = 0;
+    public Integer errorCount = 0;
+
+    public ArrayList<Instruction> instructionMapping = new ArrayList<>();
+    public HashMap<String, Declaration> varDecls = new HashMap<>();
+
+    // Redefinition of error functions
+    /* The report_error function, in this program, is called only when
+       an error, not managed by the error symbol, is found.
+       Indeed, when errors are recognized by the error symbol, the function
+       syntax_error (disabled in this program) is called.
+       This program is an example of error function redefinition: two new
+       functions are developed, pSynError and pSynWarning, used to print
+       syntactical errors and warning, respectively. */
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+
+        // Return the line number of actual symbol
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+
+    public Symbol getCurSymbol() {
+        return (Symbol)stack.elementAt(tos);
+    }
+:};
+
+
+action code {:
+    private void addInstruction(Instruction ins) {
+        parser.instructionMapping.add(ins);
+    }
+
+    private Expression makeExpression(Expression lhs, Expression rhs, Expression.Operation op) {
+        Expression expr = new Expression(lhs, rhs, op);
+        if (!expr.typeCheck(parser.varDecls)) {
+            Declaration.Decltype lhsType = lhs.getType(parser.varDecls);
+            Declaration.Decltype rhsType = rhs.getType(parser.varDecls);
+            pSynWarning("Operation " + op + " has different types, " + lhsType + " " + op + " " + rhsType + " will be coerced to " + expr.getType(parser.varDecls));
+        }
+        expr.setType(expr.getType(parser.varDecls));
+        return expr;
+    }
+
+    private Assignment checkAssignmentType(Identifier id, Expression e) {
+        if (id == null) {
+            // previous parser state return null on an id, error has already been reported
+            return new Assignment(id, e);
+        }
+        Declaration decl = parser.varDecls.get(id.getName());
+        if (decl == null) {
+            pSynError("Variable " + id.getName() + " doesn't exist");
+            return null;
+        }
+        Declaration.Decltype type = decl.getType();
+        try {
+            Declaration.Decltype exprType = e.getType(parser.varDecls);
+            if (exprType != type) {
+                pSynWarning("Assignment to a variable of type " + type + " with value of type " + exprType);
+            }
+        } catch (RuntimeException exc) {
+            pSynError("RuntimeException: ");
+            exc.printStackTrace(System.out);
+            return null;
+        }
+        return new Assignment(id, e);
+    }
+
+    private Identifier checkIdExists(String ident, Object index) {
+        Declaration decl = parser.varDecls.get(ident);
+        if (decl == null) {
+            pSynError("Variable " + ident + " doesn't exist");
+            return null;
+        } else if (index instanceof Integer) {
+            Integer indexVal = (Integer)index;
+            Integer size = decl.getSize();
+            if (size == 0) {
+                pSynError("Index operation on scalar variable " + decl.getName());
+                return null;
+            }
+            if (indexVal >= size) {
+                pSynError("Index " + indexVal + " is outside of bounds in array " + decl.getName() + " of size " + size);
+                return null;
+            }
+        }
+        if (index instanceof Integer)
+            return new Identifier(ident, (Integer)index);
+        else if (index instanceof String)
+            return new Identifier(ident, (String)index);
+        return new Identifier(ident);
+    }
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.errorCount++;
+        // parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.warningCount++;
+    }
+
+    private void createDeclaration(Declaration.Decltype decltype, ArrayList<Variable> vl) {
+        for (Variable v : vl) {
+            var decl = new Declaration(v, decltype);
+            parser.varDecls.put(v.getName(), decl);
+            addInstruction(decl);
+        }
+    }
+
+    private void printInstructions(StatementList sl) {
+        try {
+            PrintWriter writer = new PrintWriter("bubble.asm", "UTF-8");
+            parser.instructionMapping.forEach((x) -> writer.println(x.toString()));
+            String str = sl.toString();
+            writer.println(str);
+            writer.println("END");
+            writer.close();
+        } catch (IOException exc) {
+            System.out.println("IO Error" + exc);
+        }
+    }
+        
+:}
+
+
+// Terminal tokens
+terminal Integer INT;
+terminal Double DOUBLE;
+
+terminal PRINT, IF, WHILE, ELSE;
+terminal String ID;
+terminal RO, RC, BO, BC, S, CM, SO, SC;
+terminal PLUS, MINUS, STAR, DIV;
+terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal AND, OR, NOT;
+terminal INT_TYPE, DOUBLE_TYPE;
+terminal UMINUS;
+
+
+// Non terminal tokens
+non terminal prog;
+non terminal StatementList stmt_list;
+non terminal Instruction stmt;
+non terminal IfInstruction if;
+non terminal WhileInstruction while;
+non terminal Assignment assignment;
+non terminal Print print;
+non terminal Expression exp;
+non terminal mineq, majeq;
+
+non terminal decl_list, decl;
+non terminal ArrayList<Variable> var_list;
+non terminal Variable var;
+non terminal Declaration.Decltype type;
+non terminal ArrayList<Integer> array;
+non terminal Expression if_condition;
+non terminal Expression while_condition;
+non terminal Identifier id;
+
+// Precedences and associativities
+// lower precedences
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+precedence left UMINUS;
+// higher precedences
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+
+
+prog ::= decl_list stmt_list:sl {:
+    if (parser.isCorrect) {
+        System.out.println("Program correctly recognized");
+        printInstructions(sl);
+    } else if (parser.errorCount == 0) {
+        System.out.println("Program correctly recognized with " + parser.warningCount + " warning(s)");
+        printInstructions(sl);
+    } else {
+        System.out.println("Program failed to compile with " + parser.warningCount + " warning(s) and " + parser.errorCount + " error(s)");
+    }
+:}
+;
+
+
+//////////////////////////////////////
+// Declarations
+//////////////////////////////////////
+
+decl_list ::= decl_list decl |
+;
+
+decl ::= type:t var_list:vl S {: createDeclaration(t, vl); :}
+    | type error S {: pSynWarning("Error in declaration"); :}
+;
+
+type ::= INT_TYPE {: RESULT = Declaration.Decltype.Int; :} | DOUBLE_TYPE {: RESULT = Declaration.Decltype.Double; :}
+;
+
+var_list ::= var:v {: RESULT = new ArrayList<Variable>(); RESULT.add(v); :}
+    | var_list:vl CM var:v {: RESULT = vl; RESULT.add(v); :}
+;
+
+var ::= ID:name array:a {: RESULT = new Variable(name, a); :}
+;
+
+array ::= {: RESULT = new ArrayList<>(); :} | array:a SO INT:s SC {: RESULT = a; RESULT.add(s); :}
+;
+
+
+//////////////////////////////////////
+// Instructions
+//////////////////////////////////////
+
+stmt_list ::= stmt_list:sl stmt:ins {: RESULT = new StatementList(sl, ins); :}
+            | stmt:ins {: RESULT = new StatementList(ins); :}
+            | error stmt {: pSynWarning("Error in statement"); :}
+;
+
+
+stmt ::= if:i {: RESULT = i; :}
+    | while:w {: RESULT = w; :}
+    | assignment:a {: RESULT = a; :}
+    | print:p {: RESULT = p; :}
+    | BO stmt_list:sl BC {: RESULT = sl; :}
+    | BO stmt_list error BC {: pSynWarning("Missing ; before }"); :}
+    | BO error BC {: pSynWarning("Missing ; before }"); :}
+    | error S {: pSynWarning("Error in statement"); :}
+;   
+
+// Assignment instruction
+assignment ::= id:ident S {: RESULT = new Assignment(ident); :}
+    | id:ident EQ exp:e S {: RESULT = checkAssignmentType(ident, e); :}
+    | id EQ error S {: pSynWarning("Error in expression"); :}
+    | error EQ exp S {: pSynWarning("Error in assigment"); :}
+;
+
+
+// PRINT instruction
+print ::= PRINT id:ident S {: RESULT = new Print(ident); :}
+          | PRINT error S {: pSynWarning("Error in 'print' instruction"); :}
+;
+
+
+// IF instruction
+if ::= IF if_condition:cond stmt:stmt ELSE stmt:estmt {: RESULT = new IfInstruction(cond, stmt, estmt); :}
+     | IF if_condition:cond stmt:stmt {: RESULT = new IfInstruction(cond, stmt); :}
+     | IF if_condition stmt error stmt {: pSynWarning("Error 'else' expected in 'if' instruction"); :}
+
+;
+
+if_condition ::= RO exp:e RC {: RESULT = e; :}
+    | RO error RC {: pSynWarning("Error in 'if' condition"); :}
+    | error exp RC {: pSynWarning("Error '(' expected in 'if' instruciton"); :}
+    | RO exp error  {: pSynWarning("Error ')' expected in 'if' instruciton"); :}
+;
+
+
+// WHILE instruction
+while ::= WHILE while_condition:cond stmt:st {: RESULT = new WhileInstruction(cond, st); :}
+;
+
+while_condition ::= RO exp:e RC {: RESULT = e; :}
+    | RO error RC {: pSynWarning("Error in 'while' condition"); :}
+    | error exp RC {: pSynWarning("Error '(' expected in 'while' instruciton"); :}
+    | RO exp error  {: pSynWarning("Error ')' expected in 'while' instruciton"); :}
+;
+
+
+// Expressions
+exp ::= 
+    /* Logical expressions */
+    exp:lhs AND exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.And); :}
+    | exp:lhs OR exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Or); :}
+    | NOT exp:rhs {: RESULT = new Expression(rhs, Expression.Operation.Not); :}
+
+    /* Comparison expressions */
+    | exp:lhs EQ EQ exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Comparison); :}
+    | exp:lhs MIN exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Min); :}
+    | exp:lhs MAJ exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Maj); :}
+    | exp:lhs mineq exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.MinEq); :}
+    | exp:lhs majeq exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.MajEq); :}
+
+    /* Arithmetic expression */
+    | exp:lhs PLUS exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Plus); :}
+    | exp:lhs MINUS exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Minus); :}
+    | exp:lhs STAR exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Mult); :}
+    | exp:lhs DIV exp:rhs {: RESULT = makeExpression(lhs, rhs, Expression.Operation.Div); :}
+    | RO exp:obj RC {: RESULT = new Expression(obj); :}
+    | id:ident {: RESULT = new Expression(ident, parser.varDecls); :}
+    | INT:v {: RESULT = new Expression(v); :}
+    | DOUBLE:v {: RESULT = new Expression(v); :}
+    | MINUS INT:v {: RESULT = new Expression(-v); :}
+    | MINUS DOUBLE:v {: RESULT = new Expression(-v); :}
+    | RO error RC {: pSynWarning("Error in expression"); :}
+;
+
+
+mineq ::= MIN_EQ | EQ_MIN;
+majeq ::= MAJ_EQ | EQ_MAJ;
+
+
+id ::= ID:n {: RESULT=checkIdExists(n, null); :}
+      |ID:n SO INT:idx SC {: RESULT=checkIdExists(n, idx); :}
+      |ID:n SO ID:inn SC {: RESULT=checkIdExists(n, inn); :}
+      | error SC {: pSynWarning("Error in vector"); :}
+;

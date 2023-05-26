@@ -13,6 +13,8 @@
 !lab5/calculator/Main.java
 !lab5/calculator/Calculator.java
 !lab6/minic/*.java
+!lab7/minic/*.java
+!lab7/es2/*.java
 lab6/minic/bubble.asm
 lab6/minic/parser.java
 lab6/minic/scanner.java

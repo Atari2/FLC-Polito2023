@@ -1,0 +1,117 @@
+import java_cup.runtime.*;
+import java.util.Stack;
+import java.util.ArrayList;
+
+parser code {:
+
+    public boolean isCorrect = true;
+
+    // Redefinition of error functions
+    /* The report_error function, in this program, is called only when
+       an error, not managed by the error symbol, is found.
+       Indeed, when errors are recognized by the error symbol, the function
+       syntax_error (disabled in this program) is called.
+       This program is an example of error function redefinition: two new
+       functions are developed, pSynError and pSynWarning, used to print
+       syntactical errors and warning, respectively. */
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+
+        // Return the line number of actual symbol
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+
+:};
+
+
+action code {:
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+    }
+
+:}
+
+
+// Terminal tokens
+terminal Integer INT;
+terminal String ID;
+terminal S, CM, SO, SC;
+terminal INT_TYPE, DOUBLE_TYPE, CHAR_TYPE, LONG_TYPE, FLOAT_TYPE;
+terminal POINTER;
+
+
+// Non terminal tokens
+non terminal prog;
+non terminal decl;
+non terminal Type type;
+non terminal Declaration v;
+non terminal ArrayList<Declaration> vlist;
+non terminal Stack<Modifier> array;
+non terminal Stack<Modifier> ptr;
+
+// Precedences and associativities
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+
+
+prog ::= /* empty */
+        | prog decl S
+        | prog error S;
+
+decl ::= type:t vlist:vl {:
+    for (Declaration d : vl) {
+        d.setType(t);
+    }
+    for (Declaration d : vl) {
+        System.out.println(d.toString());
+    }
+ :};
+
+vlist ::= v:v {: RESULT = new ArrayList<>(); RESULT.add(v); :} |
+          vlist:vl CM v:v {: RESULT = vl; RESULT.add(v); :};
+
+v ::= ptr:p ID:id array:a {: RESULT = new Declaration(id, p, a); :};
+
+ptr ::= /* empty */
+        {: RESULT = new Stack<>(); :}
+        | ptr:p POINTER {: RESULT = p; RESULT.push(new PointerModifier()); :};
+
+array ::= /* empty */
+        {: RESULT = new Stack<>(); :}
+        | array:a SO INT:v SC {: RESULT = a; RESULT.push(new ArrayModifier(v)); :};
+
+type ::= INT_TYPE {: RESULT = Type.INT; :}
+         | LONG_TYPE {: RESULT = Type.LONG; :}
+         | FLOAT_TYPE {: RESULT = Type.FLOAT; :}
+         | DOUBLE_TYPE {: RESULT = Type.DOUBLE; :}
+         | CHAR_TYPE {: RESULT = Type.CHAR; :};
