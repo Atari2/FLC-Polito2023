@@ -1,0 +1,112 @@
+/*************************
+ Parser
+**************************/
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with{:
+    houses = new HashMap <String, HashMap <String, Integer>>();
+:};
+
+parser code 	{:
+    public HashMap <String, HashMap <String, Integer>> houses;
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal String STRING;
+terminal int NUMBER;
+terminal START, END, HOUSE, IF, FI, PRINT, THEN, AND, OR, NOT, SEPARATOR, SC, CM, DOT, RO, RC, EQ;
+terminal TOK1, TOK2, TOK3;
+
+non terminal prog, header, houses, preferences;
+non terminal tok3s;
+non terminal house;
+non terminal HashMap<String, Integer> room_list;
+non terminal Room room;
+non terminal if_commands, if_command;
+non terminal ArrayList<PrintCommand> print_list;
+non terminal PrintCommand print;
+non terminal Boolean bool_exp, op;
+
+precedence nonassoc TOK1, TOK2, TOK3;
+precedence left OR, AND;
+precedence left NOT;
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEPARATOR houses SEPARATOR preferences;
+header ::= tok3s TOK1 tok3s TOK2 tok3s | tok3s TOK2 tok3s TOK1 tok3s;
+tok3s ::= | TOK3 | tok3s TOK3;
+houses ::= house house | houses house house;
+house ::= HOUSE STRING:name START room_list:rl END {:
+    houses.put(name, rl);
+:};
+room_list ::= room_list:rl CM room:r {:
+    rl.put(r.name, r.size);
+    RESULT = rl;
+:} | room:r {: 
+    RESULT = new HashMap<String, Integer>();
+    RESULT.put(r.name, r.size);
+:};
+room ::= STRING:name NUMBER:n {:
+    RESULT = new Room(name, n);
+:};
+preferences ::= if_commands;
+if_commands ::= | if_commands if_command;
+if_command ::= IF bool_exp:be THEN print_list:pl FI {:
+    if (be) {
+        for (PrintCommand p : pl) {
+            p.execute();
+        }
+    }
+:};
+print_list ::= print_list:pl print:p {:
+    pl.add(p);
+    RESULT = pl;
+:} | print:p {: 
+    RESULT = new ArrayList<PrintCommand>();
+    RESULT.add(p);
+:};
+print ::= PRINT STRING:s SC {: RESULT = new PrintCommand(s); :};
+bool_exp ::= op:o {: 
+    RESULT = o;
+:} | RO bool_exp:r RC {:
+    RESULT = r;
+:} | bool_exp:lhs AND bool_exp:rhs {:
+    RESULT = lhs && rhs;
+:} | bool_exp:lhs OR bool_exp:rhs {:
+    RESULT = lhs || rhs;
+:} | NOT bool_exp:exp {:
+    RESULT = !exp;
+:};
+op ::= STRING:house DOT STRING:room EQ NUMBER:n {:
+    Integer size = houses.get(house).get(room);
+    RESULT = size.equals(n);
+:};

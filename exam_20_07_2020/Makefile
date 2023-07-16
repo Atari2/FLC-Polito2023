@@ -5,7 +5,6 @@ else
 endif
 
 default: scanner parser
-
 	javac *.java
 
 json: scanner parser_json
@@ -15,22 +14,18 @@ scanner:
 	jflex scanner.jflex
 	
 parser:
-	java java_cup.Main -expect 2 -parser parser parser.cup
+	java java_cup.Main -parser parser parser.cup
 
 parser_json:
-	java java_cup.MainOutputJson -expect 2 -parser parser parser.cup
+	java java_cup.MainOutputJson -parser parser parser.cup
 	
 clean:
-
 	rm -fr parser.java scanner.java sym.java
 	rm -vfr *.class
 	rm -vfr *.*~
 	
-init:
-	mkdir source build
-	
 run:
-	java Main bubble.c
+	java Main test.txt
 
 new: default run
 

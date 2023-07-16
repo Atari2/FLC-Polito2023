@@ -15,9 +15,13 @@
 !lab6/minic/*.java
 !lab7/minic/*.java
 !lab7/es2/*.java
+!exam_*/*.java
 lab6/minic/bubble.asm
 lab6/minic/parser.java
 lab6/minic/scanner.java
 lab6/minic/sym.java
 lab3/cparser/output.svg
 lab3/library/output.svg
+parser.java
+sym.java
+Yylex.java

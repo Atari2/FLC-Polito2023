@@ -1,0 +1,132 @@
+/*************************
+ Parser
+**************************/
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {: 
+    variables = new HashMap<String, Integer>();
+:};
+
+parser code 	{:
+    public HashMap<String, Integer> variables;
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+terminal String VAR;
+terminal Integer NUM;
+terminal TOK1, TOK2, COMPARE, WITH, END, PRINT, LP, RP, RB, LB, PLUS, MINUS, MULT, DIV, EQ, SC, SEPARATOR;
+non terminal prog, header, commands, command;
+non terminal AssignmentExpr assignment;
+non terminal CompareExpr compare;
+non terminal tok1, tok2, tok2sh1, tok1sh1, tok1sh2, h1, h2;
+non terminal Integer expr;
+non terminal ArrayList<Compare> comp_list;
+non terminal Compare comp;
+non terminal ArrayList<PrintExpr> print_list;
+non terminal PrintExpr print;
+
+precedence nonassoc TOK1, TOK2;
+precedence left PLUS, MINUS;
+precedence left MULT, DIV;
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+prog ::= header SEPARATOR commands | header SEPARATOR ;
+header ::= h1 | h2;
+h1 ::= tok1sh1 tok2sh1;
+tok1sh1 ::= tok1 tok1 tok1 tok1 tok1 | tok1sh1 tok1 tok1;
+tok2sh1 ::= tok2 tok2 tok2 | 
+tok2 tok2 tok2 tok2 tok2 tok2 tok2 
+tok2 tok2 tok2 tok2 tok2 tok2 tok2 
+tok2 tok2 tok2 tok2 tok2 tok2 tok2;
+h2 ::= tok2 tok1sh2 tok2 tok1sh2 tok2 tok1sh2;
+tok1sh2 ::= | tok1 | tok1sh2 tok1;
+tok1 ::= TOK1 SC;
+tok2 ::= TOK2 SC;
+commands ::= command | commands command;
+command ::= assignment:a {: 
+    variables.put(a.name, a.value);
+:} 
+| compare:c {: 
+    for (Compare cmp : c.comps) {
+        if (c.value.equals(cmp.val)) {
+            for (PrintExpr p : cmp.prints) {
+                System.out.println(p.value);
+            }
+        }
+    }
+:};
+assignment ::= VAR:v EQ expr:e SC {: RESULT = new AssignmentExpr(v, e); :};
+compare ::= COMPARE expr:e WITH comp_list:cl END SC {: 
+    RESULT = new CompareExpr(e, cl);
+:};
+comp_list ::= comp_list:cl comp:c {: 
+    RESULT = cl;
+    RESULT.add(c);
+:} 
+| comp:c {: 
+    RESULT = new ArrayList<Compare>();
+    RESULT.add(c);
+:};
+comp ::= expr:e LB print_list:pl RB {: 
+    RESULT = new Compare(e, pl);
+:};
+print_list ::= print_list:pl print:p {: 
+    RESULT = pl;
+    RESULT.add(p);
+:} 
+| print:p {: 
+    RESULT = new ArrayList<PrintExpr>();
+    RESULT.add(p);
+:};
+print ::= PRINT expr:e SC {: 
+    RESULT = new PrintExpr(e);
+:};
+expr ::= NUM:n {: 
+    RESULT = n;
+:}
+| VAR:v {: 
+    RESULT = variables.get(v);
+:}
+| expr:lhs PLUS expr:rhs {: 
+    RESULT = lhs + rhs;
+:}
+| expr:lhs MINUS expr:rhs {: 
+    RESULT = lhs - rhs;
+:}
+| expr:lhs MULT expr:rhs {: 
+    RESULT = lhs * rhs;
+:}
+| expr:lhs DIV expr:rhs {: 
+    RESULT = lhs / rhs;
+:}
+| LP expr:e RP {: 
+    RESULT = e;
+:};

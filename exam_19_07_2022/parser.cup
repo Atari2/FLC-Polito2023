@@ -1,0 +1,131 @@
+/*************************
+ Parser
+**************************/
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+parser code 	{:
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+terminal Double NUMBER;
+terminal TOK1, TOK2;
+terminal START, MINUS, BATTERY, KWH, FUEL, LITERS, PLUS, STAR, MAX, MOD, USE, DO, DONE, KM, UNITS_PER_KM, LPAREN, RPAREN, SEPARATOR, SC, COMMA;
+
+non terminal prog, header, run;
+non terminal toks, tok1s;
+non terminal tok1, tok2;
+non terminal ArrayList<Command> command_list;
+non terminal Command command; 
+non terminal Double battery_ass, fuel_ass;
+non terminal BatteryFuel start_ins, start_sec;
+non terminal Double exp;
+non terminal ArrayList<Double> exp_list;
+non terminal Double max_func;
+non terminal UseCommand use_command;
+non terminal ModCommand mod_command;
+non terminal Cons cons;
+non terminal ArrayList<Cons> cons_list;
+non terminal String power_type;
+precedence nonassoc TOK1;
+precedence left PLUS, STAR;
+precedence left MAX;
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEPARATOR run;
+header ::= tok1s
+| tok1s tok2 tok1s tok2 tok1s
+| tok1s tok2 tok1s tok2 tok1s tok2 tok1s;
+tok1s ::= | tok1 | tok1s tok1;
+tok1 ::= TOK1 SC;
+tok2 ::= TOK2 SC;
+run ::= start_ins:bf command_list:cl {:
+    bf.displayCurrent();
+    for (Command c : cl) {
+        c.execute(bf);
+    }
+:};
+start_ins ::= START start_sec:bf SC {: RESULT = bf; :};
+start_sec ::= {: RESULT = new BatteryFuel(100.0, 100.0); :} 
+| battery_ass:b MINUS fuel_ass:f {: 
+    RESULT = new BatteryFuel(b, f);
+:}
+| fuel_ass:f MINUS battery_ass:b {: 
+    RESULT = new BatteryFuel(b, f);
+:}
+| fuel_ass:f MINUS {:
+    RESULT = new BatteryFuel(100.0, f);
+:} 
+| battery_ass:b MINUS {: 
+    RESULT = new BatteryFuel(b, 100.0);
+:};
+battery_ass ::= BATTERY exp:e KWH {:
+    RESULT = e;
+:};
+fuel_ass ::= FUEL exp:e LITERS {: 
+    RESULT = e;
+:};
+command_list ::= command:c1 command:c2 command:c3 command:c4 {:
+    RESULT = new ArrayList<Command>();
+    RESULT.add(c1);
+    RESULT.add(c2);
+    RESULT.add(c3);
+    RESULT.add(c4);
+:}
+| command_list:cl command:c1 command:c2 {:
+    RESULT = cl;
+    RESULT.add(c1);
+    RESULT.add(c2);
+:};
+max_func ::= MAX LPAREN exp_list:el RPAREN {:
+    RESULT = Collections.max(el);
+:};
+exp ::= NUMBER:n {: RESULT = n; :}
+| exp:lhs PLUS exp:rhs {: RESULT = lhs + rhs; :} 
+| exp:lhs STAR exp:rhs {: RESULT = lhs * rhs; :} 
+| max_func:mf {: RESULT = mf; :}; 
+exp_list ::= exp:e {: RESULT = new ArrayList<Double>(); RESULT.add(e); :} | exp_list:el COMMA exp:e {:
+    RESULT = el;
+    RESULT.add(e);
+:};
+command ::= mod_command:mc SC {: RESULT = mc; :} 
+| use_command:uc SC {: RESULT = uc; :};
+mod_command ::= MOD power_type:pt exp:v {:
+    RESULT = new ModCommand(pt, v);
+:};
+use_command ::= USE power_type:pt DO cons_list:cl DONE {:
+    RESULT = new UseCommand(pt, cl);
+:};
+power_type ::= BATTERY {: RESULT = "BATTERY"; :} | FUEL {: RESULT = "FUEL"; :};
+cons_list ::= cons:c {: RESULT = new ArrayList<Cons>(); RESULT.add(c); :} 
+| cons_list:cl cons:c {: RESULT = cl; RESULT.add(c); :};
+cons ::= exp:e1 KM exp:e2 UNITS_PER_KM SC {: 
+    RESULT = new Cons(e1, e2);
+:};
