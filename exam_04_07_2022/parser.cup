@@ -1,0 +1,111 @@
+/*************************
+ Parser
+**************************/
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {: 
+    variables = new HashMap<String, Boolean>();
+:};
+
+parser code {:
+    public HashMap<String, Boolean> variables;
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+terminal TOK1, TOK2, TOK3;
+terminal String VAR;
+terminal String STRING;
+terminal TRUE, FALSE, IF, FI, DO, DONE, OR, AND, NOT, ORWORD, ANDWORD, PRINT, LP, RP, SC, SEPARATOR, EQ;
+non terminal prog;
+non terminal tok1, tok2, tok3;
+non terminal h1, h2, tok2h1, tok13h1, tok1or3, tok12h2, tok1or2;
+non terminal header, commands, command;
+non terminal ass_command, if_command;
+non terminal Boolean bool_exp;
+non terminal ArrayList<Comp> list_comp;
+non terminal Comp comp; 
+non terminal String print;
+precedence nonassoc TOK1, TOK2, TOK3;
+precedence left AND, OR;
+precedence left NOT;
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+prog ::= header SEPARATOR commands | header SEPARATOR ;
+header ::= h1 | h2;
+h1 ::= tok2h1 tok13h1;
+h2 ::= tok3 tok12h2 tok3 tok12h2 tok3 tok12h2;
+tok2h1 ::= tok2 tok2 tok2 | tok2h1 tok2 tok2;
+tok13h1 ::= tok1or3 tok1or3 | tok1or3 tok1or3 tok1or3 | tok1or3 tok1or3 tok1or3 tok1or3 tok1or3 tok1or3 tok1or3 tok1or3 tok1or3;
+tok1or3 ::= tok1 | tok3;
+tok12h2 ::= tok1or2 | tok12h2 tok1or2; 
+tok1or2 ::= tok1 | tok2;
+tok1 ::= TOK1 SC;
+tok2 ::= TOK2 SC;
+tok3 ::= TOK3 SC;
+commands ::= command command command command command | commands command command;
+command ::= ass_command SC | if_command;
+bool_exp ::= VAR:v {: RESULT = variables.get(v); :}
+| TRUE {: RESULT = true; :}
+| FALSE {: RESULT = false; :}
+| bool_exp:lhs AND bool_exp:rhs {: RESULT = lhs && rhs; :}
+| bool_exp:lhs OR bool_exp:rhs {: RESULT = lhs || rhs; :}
+| NOT bool_exp:b {: RESULT = !b; :}
+| LP bool_exp:b RP {: RESULT = b; :};
+ass_command ::= VAR:v EQ bool_exp:b {: 
+    variables.put(v, b);
+:};
+if_command ::= IF bool_exp:b list_comp:lc FI {: 
+    for (Comp c : lc) {
+        if (c.comptype.equals("AND")) {
+            if (b && c.value) {
+                System.out.println(c.string);
+            }
+        } else if (c.comptype.equals("OR")) {
+            if (b || c.value) {
+                System.out.println(c.string);
+            }
+        }
+    }
+:};
+list_comp ::= comp:c {: 
+    RESULT = new ArrayList<Comp>();
+    RESULT.add(c);
+:} | list_comp:lc comp:c {: 
+    RESULT = lc;
+    RESULT.add(c);
+:};
+comp ::= ORWORD bool_exp:b DO print:p DONE {: 
+    RESULT = new Comp("OR", b, p);
+:} | ANDWORD bool_exp:b DO print:p DONE {: 
+    RESULT = new Comp("AND", b, p);
+:};
+print ::= PRINT STRING:s SC {: 
+    RESULT = s;
+:};
