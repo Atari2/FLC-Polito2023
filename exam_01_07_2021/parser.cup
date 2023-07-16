@@ -1,0 +1,134 @@
+/*************************
+ Parser
+**************************/
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {: 
+    materialTypes = new HashMap<String, MaterialType>();
+:};
+
+parser code 	{:
+    public HashMap<String, MaterialType> materialTypes;
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+terminal TOK1, TOK2;
+terminal LB, RB, CM, COL, EURO_KG, EURO, KG, SC, SEPARATOR;
+terminal String STRING;
+terminal Double REAL;
+terminal Integer INTEGER;
+non terminal prog;
+non terminal header, warehouse, products;
+non terminal MaterialType material_type; 
+non terminal ArrayList<Material> material_list;
+non terminal ArrayList<MaterialType> material_type_list;
+non terminal Material material;
+non terminal product;
+non terminal ArrayList<Element> element_list;
+non terminal Element element;
+non terminal ArrayList<Component> component_list;
+non terminal Component component;
+non terminal tok1, tok2, h1, h2;
+non terminal tok1sh1, tok2sh1, tok1sh2;
+
+precedence nonassoc TOK1, TOK2;
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+prog ::= header SEPARATOR warehouse SEPARATOR products | header SEPARATOR warehouse SEPARATOR ;
+header ::= h1 | h2;
+h1 ::= tok1sh1 tok2sh1;
+h2 ::= tok2 tok1sh2 tok2 tok1sh2 | tok2 tok1sh2 tok2 tok1sh2 tok2 tok1sh2;
+tok1sh1 ::= tok1 tok1 tok1 tok1 | tok1sh1 tok1 tok1;
+tok2sh1 ::= tok2 tok2 tok2 | tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 | tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2;
+tok1sh2 ::= | tok1 | tok1sh2 tok1;
+tok1 ::= TOK1 SC;
+tok2 ::= TOK2 SC;
+warehouse ::= material_type_list:mtl {: 
+    for (MaterialType mt : mtl) {
+        System.out.println(mt.name + ": less: " + mt.getLowest() + " more: " + mt.getHighest());
+    }
+    System.out.println("---");
+:};
+material_type_list ::= material_type:mt1 material_type:mt2 {: 
+    RESULT = new ArrayList<MaterialType>();
+    RESULT.add(mt1);
+    RESULT.add(mt2);
+:}| material_type_list:mtl material_type:mt {: 
+    RESULT = mtl;
+    RESULT.add(mt);
+:};
+material_type ::= LB material_list:ml RB STRING:name SC {: 
+    RESULT = new MaterialType(name, ml);
+    materialTypes.put(name, RESULT);
+:};
+material_list ::= material:m {: 
+    RESULT = new ArrayList<Material>();
+    RESULT.add(m);
+:}
+| material_list:ml CM material:m {: 
+    RESULT = ml;
+    RESULT.add(m);
+:};
+material ::= STRING:name REAL:price EURO_KG {: 
+    RESULT = new Material(name, price);
+:};
+products ::= product | products product;
+product ::= REAL:tax EURO STRING:name COL element_list:el SC {: 
+    System.out.println(name);
+    for (Element e : el) {
+        MaterialType mt = materialTypes.get(e.name);
+        for (Component c : e.components) {
+            Material m = mt.getMaterial(c.name);
+            System.out.println(c.name + " " + ((c.quantity * m.price) + tax) + " euro");
+        }
+    }
+:};
+element_list ::= element:e {: 
+    RESULT = new ArrayList<Element>();
+    RESULT.add(e);
+:}
+| element_list:el CM element:e {: 
+    RESULT = el;
+    RESULT.add(e);
+:};
+element ::= STRING:name LB component_list:cl RB {: 
+    RESULT = new Element(name, cl);
+:};
+component_list ::= component:c {: 
+    RESULT = new ArrayList<Component>();
+    RESULT.add(c);
+:}
+| component_list:cl CM component:c {: 
+    RESULT = cl;
+    RESULT.add(c);
+:};
+component ::= STRING:name INTEGER:qt KG {: 
+    RESULT = new Component(name, qt);
+:};
