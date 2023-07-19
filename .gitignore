@@ -16,6 +16,7 @@
 !lab7/minic/*.java
 !lab7/es2/*.java
 !exam_*/*.java
+!flc_*/*.java
 lab6/minic/bubble.asm
 lab6/minic/parser.java
 lab6/minic/scanner.java

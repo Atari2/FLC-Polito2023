@@ -1,0 +1,6 @@
+Nothing changed in the scanner (I just removed a part of a comment that was inaccurate).
+In the parser:
+- Before I was accessing <dress_name> and <perc> using synthesized attributes now I'm accessing them throught inherited attributes directly accessing the stack. 
+  The total price is also now calculated via accumuling it in the inherited attribute rather than using a for-loop with an ArrayList.
+  The original code was "unfinished" because I was mid-refactor when I had to stop working on it because time ran out.
+- After finishing the change from synthesized to inherited attributes I could also delete some helper classes I was using (PurcProd.java, Purchase.java).

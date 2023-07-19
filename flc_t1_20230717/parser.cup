@@ -1,0 +1,119 @@
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {: 
+    dresses = new HashMap<String, Dress>();
+:};
+
+parser code {:
+    public HashMap<String, Dress> dresses;
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+
+:};
+
+// Terminal tokens
+terminal TOK1, TOK2, TOK3;
+terminal SC, SEPARATOR, PERC, MINUS, COMMA, EURO;
+terminal Integer INTEGER;
+terminal Double REAL;
+terminal String STRING;
+
+non terminal prog;
+non terminal tok1, tok2, tok3, header;
+non terminal h1, h2, tok1sh1, tok2sh1, tok13sh2, tok1or3;
+non terminal Prod prod;
+non terminal ArrayList<Prod> prod_list;
+non terminal dresses;
+non terminal dress;
+non terminal shopping;
+non terminal purchasing_list;
+non terminal purchase;
+non terminal Object[] purc_prod_list;
+non terminal Object[] purc_prod;
+// Precedences and associativities
+precedence nonassoc TOK1, TOK2, TOK3;
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+prog ::= header SEPARATOR dresses SEPARATOR shopping;
+header ::= h1 | h2;
+h1 ::= tok1sh1 tok2sh1;
+h2 ::= tok2 tok13sh2 tok2 tok13sh2 | tok2 tok13sh2;
+tok1sh1 ::= tok1 tok1 tok1 | tok1sh1 tok1 tok1;
+tok2sh1 ::= tok2 tok2 tok2 | tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 | tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2 tok2;
+tok13sh2 ::= | tok1or3 | tok13sh2 tok1or3;
+tok1or3 ::= tok1 | tok3;
+tok1 ::= TOK1 SC;
+tok2 ::= TOK2 SC;
+tok3 ::= TOK3 SC;
+dresses ::= dress dress dress | dresses dress dress;
+dress ::= STRING:name MINUS prod_list:pl SC {: 
+    dresses.put(name, new Dress(name, pl));
+:};
+prod_list ::= prod:p {: 
+   RESULT = new ArrayList<Prod>();
+   RESULT.add(p);
+:}
+| prod_list:pl COMMA prod:p {: 
+    RESULT = pl;
+    RESULT.add(p);
+:};
+prod ::= INTEGER:id STRING:name REAL:cost EURO {:
+    RESULT = new Prod(id, name, cost);
+:};
+shopping ::= purchasing_list;
+purchasing_list ::= purchase | purchasing_list purchase;
+purchase ::= STRING INTEGER PERC MINUS purc_prod_list:ppl SC {: 
+    System.out.println("TOTAL: " + ppl[0] + " euro N_PROD: " + ppl[1]);
+:};
+purc_prod_list ::= purc_prod:pp {: 
+    Integer percent = (Integer)stack(-3);
+    String dress_name = (String)stack(-4);    
+    String prod_name = (String)pp[0];
+    Integer quantity = (Integer)pp[1];
+    Dress d = dresses.get(dress_name);
+    Double price = d.getPrice((String)pp[0]);
+    Double prod_cost = ((percent * quantity * price) / 100);
+    RESULT = new Object[2];
+    RESULT[0] = prod_cost;
+    RESULT[1] = quantity;
+    System.out.println(dress_name);
+    System.out.println(prod_name + " " + prod_cost + " euro");
+:}
+| purc_prod_list:ppl COMMA purc_prod:pp {: 
+    Integer percent = (Integer)stack(-5);
+    String dress_name = (String)stack(-6);
+    String prod_name = (String)pp[0];
+    Integer quantity = (Integer)pp[1];
+    Dress d = dresses.get(dress_name);
+    Double price = d.getPrice(prod_name);
+    Double prod_cost = (percent * quantity * price) / 100;
+    RESULT = ppl;
+    RESULT[0] = (Double)RESULT[0] + prod_cost;
+    RESULT[1] = (Integer)RESULT[1] + quantity;
+    System.out.println(prod_name + " " + prod_cost + " euro");
+:};
+purc_prod ::= STRING:name INTEGER:qty {: 
+    RESULT = new Object[2];
+    RESULT[0] = name;
+    RESULT[1] = qty;
+:};
